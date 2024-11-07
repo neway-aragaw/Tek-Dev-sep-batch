@@ -1,0 +1,131 @@
+For a GitHub README, you can use Markdown to format the steps with bold titles and color. However, GitHub Markdown doesn't support text color natively, so I’ll use bold and headings for clear emphasis. Here’s the deployment guide formatted to fit GitHub’s README style:
+
+```markdown
+# CICD Pipeline Train Schedule Kubernetes Deployment
+
+> **Note:** Replace placeholders such as `<your-username>`, `<your_account_id>`, and `<your_ecr_image_url>` with your own information.
+
+---
+
+## Step 1: System Update and AWS CLI Installation
+```bash
+sudo yum update -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+aws --version
+```
+
+## Step 2: Set up Kubernetes repository
+```bash
+cat <<EOF | sudo tee /etc/yum.repos.d/kubernetes.repo
+[kubernetes]
+name=Kubernetes
+baseurl=https://pkgs.k8s.io/core:/stable:/v1.31/rpm/
+enabled=1
+gpgcheck=1
+gpgkey=https://pkgs.k8s.io/core:/stable:/v1.31/rpm/repodata/repomd.xml.key
+EOF
+```
+
+## Step 3: Install Docker, Kubernetes CLI, and start services
+```bash
+sudo yum install -y docker kubectl kubeadm kubelet
+systemctl start docker
+systemctl enable docker
+systemctl enable --now kubelet
+yum update -y
+systemctl start kubelet
+systemctl enable kubelet
+```
+
+## Step 4: Install eksctl
+```bash
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/0.69.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+sudo mv /tmp/eksctl /usr/local/bin
+aws configure
+```
+
+## Step 5: Clone Git repository and authenticate Docker with AWS ECR
+```bash
+sudo yum install git -y
+git clone https://github.com/<your-username>/cicd-pipeline-train-schedule-kubernetes.git
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
+```
+
+## Step 6: Build, tag, and push Docker image to ECR
+```bash
+cd cicd-pipeline-train-schedule-kubernetes/
+docker build -t trainschedulerepo:latest .
+docker tag trainschedulerepo:latest <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+```
+
+## Step 7: Configure Kubernetes cluster and check status
+```bash
+aws eks --region us-east-1 update-kubeconfig --name trainSchedule-cluster
+kubectl get nodes
+kubectl get pods
+```
+
+## Step 8: Deploy and expose application with Kubernetes
+
+1. Create a deployment configuration file `deployment.yaml`:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: train-schedule-app
+   spec:
+     replicas: 2
+     selector:
+       matchLabels:
+         app: train-schedule-app
+     template:
+       metadata:
+         labels:
+           app: train-schedule-app
+       spec:
+         containers:
+         - name: train-schedule-app
+           image: <your_ecr_image_url>  # Replace with your ECR image URL
+           ports:
+           - containerPort: 80
+   ```
+   
+2. Apply the deployment:
+   ```bash
+   kubectl apply -f deployment.yaml
+   ```
+
+3. Create a service configuration file `service.yaml`:
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: train-schedule-service
+   spec:
+     type: LoadBalancer
+     ports:
+       - port: 80
+     selector:
+       app: train-schedule-app
+   ```
+
+4. Apply the service:
+   ```bash
+   kubectl apply -f service.yaml
+   ```
+
+## Step 9: Verify application deployment
+```bash
+kubectl get service
+kubectl get pods
+kubectl get pod -o wide
+kubectl get pods --all-namespaces
+kubectl get pods --all-namespaces -o wide
+kubectl get namespaces
+```
+``` 
+
+This Markdown code is ready to paste into a GitHub README file for clear and formatted documentation.
