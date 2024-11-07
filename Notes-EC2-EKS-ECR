@@ -1,0 +1,174 @@
+
+### **1. EC2 (Elastic Compute Cloud) Setup**
+
+
+#### **Step-by-Step EC2 Setup:**
+
+1. **Launch EC2 Instance:**
+   - Navigate to [EC2 Dashboard](https://console.aws.amazon.com/ec2/).
+   - Click **Launch Instance**.
+   - Select **Amazon Linux 2023**.
+   - Choose an instance type, such as **t2.medium**.
+   - Configure the instance settings (you can leave most of the settings at their defaults).
+   - Set up **Security Group**: Allow inbound traffic on **port 22 (SSH)**, **port 80 (HTTP)**, **port 443 (HTTPS)**, and **port 8080** for additional services.
+   - Click **Review and Launch** and then **Launch**.
+
+2. **Connect to EC2 Instance:**
+   - Once the instance is launched, connect using SSH:
+     ```bash
+     ssh -i /path/to/your-key.pem ec2-user@<Your-EC2-Public-IP>
+     ```
+======>>>>>>>>>>>>>>>>>>>>>>>add the codes used on Tek-Dev-sep-batch/group study  repo
+
+
+
+### **2. ECR (Elastic Container Registry) Setup**
+
+You can store Docker images in ECR, and push/pull containers using AWS.
+
+#### **Step-by-Step ECR Setup:**
+
+1. **Create ECR Repository:**
+   - Go to the [ECR Console](https://console.aws.amazon.com/ecr/).
+   - Click **Create Repository**.
+   - Name your repository, e.g., `trainschedulerepo`.
+   - Click **Create repository**.
+
+2. **Authenticate Docker with AWS ECR:**
+   - Use AWS CLI to log into ECR:
+     ```bash
+     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
+     ```
+
+3. **Build and Push Docker Image to ECR:**
+   - Navigate to your project directory and build your Docker image:
+     ```bash
+     cd cicd-pipeline-train-schedule-kubernetes/
+     docker build -t trainschedulerepo:latest .
+     ```
+   - Tag the image with your ECR repository URL:
+     ```bash
+     docker tag trainschedulerepo:latest <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+     ```
+   - Push the image to ECR:
+     ```bash
+     docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+     ```
+
+---
+
+### **3. EKS (Elastic Kubernetes Service) Setup**
+
+EKS helps you run Kubernetes clusters without having to manage infrastructure. You can deploy your Docker containers to EKS.
+
+#### **Step-by-Step EKS Setup:**
+
+1. **Create an EKS Cluster:**
+   - Go to the [EKS Console](https://console.aws.amazon.com/eks/).
+   - Click **Create Cluster**.
+   - Name the cluster (e.g., `trainSchedule-cluster`), select the Kubernetes version (latest), and configure networking (VPC and subnets).
+   - Ensure you attach the IAM role with the necessary permissions, including **AmazonEKSClusterPolicy**.
+
+2. **Create Worker Nodes in EKS:**
+   - Use `eksctl` to create a node group:
+     ```bash
+     eksctl create nodegroup --cluster trainSchedule-cluster --region us-east-1 --name train-schedule-nodegroup --node-type t2.medium --nodes 3
+     ```
+
+3. **Configure kubectl for EKS:**
+   - Use AWS CLI to configure `kubectl` to interact with the EKS cluster:
+     ```bash
+     aws eks --region us-east-1 update-kubeconfig --name trainSchedule-cluster
+     ```
+   - Verify the connection:
+     ```bash
+     kubectl get nodes
+     ```
+
+---
+
+### **4. IAM (Identity and Access Management) Setup**
+
+IAM allows you to manage access to AWS services securely by creating policies and roles.
+
+#### **Step-by-Step IAM Setup:**
+
+1. **Create IAM Role for EKS Cluster:**
+   - Go to the [IAM Console](https://console.aws.amazon.com/iam/).
+   - Create an IAM role for your EKS cluster with the policy **AmazonEKSClusterPolicy**.
+   - Attach this role to the EKS cluster to allow Kubernetes management.
+
+2. **Create IAM Role for Worker Nodes:**
+   - Create a separate IAM role for EKS worker nodes with the **AmazonEKSWorkerNodePolicy**.
+   - Attach this IAM role to your node group during the worker node setup in the EKS cluster.
+
+3. **Create IAM User (for CLI and Console Access):**
+   - In IAM, create a new user with programmatic access (for AWS CLI) and console access (if needed).
+   - Attach the required policies like **AmazonEC2FullAccess**, **AmazonEKSFullAccess**, and **AmazonECRFullAccess**.
+   - Download the access keys to configure AWS CLI access on your local machine:
+     ```bash
+     aws configure
+     ```
+
+---
+
+### **5. Deploy and Expose Application with Kubernetes**
+
+Now, you'll create Kubernetes configuration files to deploy your Docker application in the EKS cluster.
+
+#### **Step-by-Step Kubernetes Deployment:**
+
+1. **Create Deployment YAML:**
+   Create a `deployment.yaml` file to define your app deployment:
+   ```yaml
+   apiVersion: apps/v1
+   kind: Deployment
+   metadata:
+     name: train-schedule-app
+   spec:
+     replicas: 2
+     selector:
+       matchLabels:
+         app: train-schedule-app
+     template:
+       metadata:
+         labels:
+           app: train-schedule-app
+       spec:
+         containers:
+         - name: train-schedule-app
+           image: <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest  ## Replace with your ECR image URL
+           ports:
+           - containerPort: 80
+   ```
+
+2. **Apply Deployment in Kubernetes:**
+   Apply the deployment to your Kubernetes cluster:
+   ```bash
+   kubectl apply -f deployment.yaml
+   ```
+
+3. **Create Service YAML to Expose App:**
+   Create a `service.yaml` file to expose your application:
+   ```yaml
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: train-schedule-service
+   spec:
+     type: LoadBalancer
+     ports:
+       - port: 80
+     selector:
+       app: train-schedule-app
+   ```
+
+4. **Apply Service in Kubernetes:**
+   Apply the service to expose the app:
+   ```bash
+   kubectl apply -f service.yaml
+   ```
+
+---
+
+By following these steps, you will have set up a full workflow for deploying your Dockerized application using EC2, ECR, and EKS, while managing access with IAM.
