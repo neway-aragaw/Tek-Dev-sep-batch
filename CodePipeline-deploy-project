@@ -1,0 +1,120 @@
+# ================================================================
+# Step 1: Update system packages
+# ================================================================
+sudo yum update -y 
+
+# ================================================================
+# Step 2: Install Ruby
+# ================================================================
+sudo yum install -y ruby 
+
+# ================================================================
+# Step 3: Install wget
+# ================================================================
+sudo yum install -y wget 
+
+# ================================================================
+# Step 4: Navigate to the ec2-user's home directory
+# ================================================================
+cd /home/ec2-user 
+
+# ================================================================
+# Step 5: Download AWS CodeDeploy agent installer
+# ================================================================
+wget https://aws-codedeploy-us-east-1.s3.us-east-1.amazonaws.com/latest/install 
+
+# ================================================================
+# Step 6: Make the installer executable
+# ================================================================
+chmod +x ./install 
+
+# ================================================================
+# Step 7: Run the installer in automatic mode
+# ================================================================
+sudo ./install auto 
+
+# ================================================================
+# Step 8: Start the CodeDeploy agent service
+# ================================================================
+sudo service codedeploy-agent start 
+
+# ================================================================
+# Step 9: Check the status of the CodeDeploy agent
+# ================================================================
+sudo service codedeploy-agent status 
+
+# ================================================================
+# Step 10: Install Git
+# ================================================================
+sudo yum install -y git 
+
+# ================================================================
+# Step 11: Clone the repository
+# ================================================================
+git clone https://github.com/neway-aragaw/cicd-pipeline-train-schedule-kubernetes.git 
+
+# ================================================================
+# Step 12: Navigate into the project directory
+# ================================================================
+cd cicd-pipeline-train-schedule-kubernetes/ 
+
+# ================================================================
+# Step 13: Install NGINX from Amazon Linux Extras
+# ================================================================
+sudo yum install nginx -y 
+
+# ================================================================
+# Step 14: Create a custom NGINX configuration file for your app
+# ================================================================
+sudo nano /etc/nginx/conf.d/myapp.conf
+
+# Add the following content in myapp.conf (this example assumes the app runs on port 3000):
+
+server {
+    listen 80;
+    server_name localhost;
+
+    location / {
+        proxy_pass http://localhost:8080;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+
+# ================================================================
+# Step 15: Restart NGINX to apply the configuration
+# ================================================================
+sudo systemctl restart nginx 
+
+# ================================================================
+# Step 16: Install development tools and Node.js
+# ================================================================
+sudo yum install -y gcc-c++ make 
+curl -sL https://rpm.nodesource.com/setup_16.x | sudo -E bash - 
+sudo yum install -y nodejs 
+
+# ================================================================
+# Step 17: Install PM2 globally to manage the Node.js application
+# ================================================================
+sudo npm install -g pm2 
+
+# ================================================================
+# Step 18: Use PM2 to start app.js (adjust the path to where app.js is located)
+# ================================================================
+pm2 start /home/ec2-user/cicd-pipeline-train-schedule-kubernetes/app.js 
+
+# ================================================================
+# Step 19: Configure PM2 to start on boot
+# ================================================================
+pm2 startup systemd
+sudo env PATH=$PATH:/usr/bin pm2 startup systemd -u ec2-user --hp /home/ec2-user
+pm2 save
+
+# ================================================================
+# Verify that the app is running
+# ================================================================
+pm2 list
