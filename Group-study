@@ -1,6 +1,6 @@
 # ================================================================
 # Note: Replace placeholders such as <your-username>, <your_account_id>, 
-# and <your_ecr_image_url> with your own information.
+# <your_ecr_image_url>, and <cluster-name> with your own information.
 # ================================================================
 
 Step 1: System Update and AWS CLI Installation
@@ -39,13 +39,22 @@ systemctl enable kubelet
 ==============================================================================
 Step 4: Install eksctl
 ==============================================================================
-
-curl --silent --location "https://github.com/weaveworks/eksctl/releases/download/0.69.0/eksctl_Linux_amd64.tar.gz" | tar xz -C /tmp
+curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
 sudo mv /tmp/eksctl /usr/local/bin
-aws configure
+sudo chmod +x /usr/local/bin/eksctl
+eksctl version
 
 ==============================================================================
-Step 5: Clone Git repository and authenticate Docker with AWS ECR
+Step 5: Create EKS Cluster (Example Command)
+==============================================================================
+eksctl create cluster --name <cluster-name> --version 1.21 --region us-east-1 --nodegroup-name <nodegroup-name> --node-type t3.medium --nodes 2 --nodes-min 1 --nodes-max 3 --managed
+
+# Replace <cluster-name> with a custom name for your EKS cluster and <nodegroup-name> with a name for your worker node group.
+# Example:
+# eksctl create cluster --name trainSchedule-cluster --version 1.21 --region us-east-1 --nodegroup-name standard-workers --node-type t3.medium --nodes 2 --nodes-min 1 --nodes-max 3 --managed
+
+==============================================================================
+Step 6: Clone Git repository and authenticate Docker with AWS ECR
 ==============================================================================
 
 sudo yum install git -y
@@ -53,7 +62,7 @@ git clone https://github.com/<your-username>/cicd-pipeline-train-schedule-kubern
 aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
 
 ==============================================================================
-Step 6: Build, tag, and push Docker image to ECR
+Step 7: Build, tag, and push Docker image to ECR
 ==============================================================================
 
 cd cicd-pipeline-train-schedule-kubernetes/
@@ -62,20 +71,20 @@ docker tag trainschedulerepo:latest <your_account_id>.dkr.ecr.us-east-1.amazonaw
 docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
 
 ==============================================================================
-Step 7: Configure Kubernetes cluster and check status
+Step 8: Configure kubectl with EKS cluster and check node status
 ==============================================================================
 
-aws eks --region us-east-1 update-kubeconfig --name trainSchedule-cluster
+aws eks --region us-east-1 update-kubeconfig --name <cluster-name>
 kubectl get nodes
-kubectl get pods
 
 ==============================================================================
-Step 8: Deploy and expose application with Kubernetes
+Step 9: Deploy and expose application with Kubernetes
 ==============================================================================
 
+# Create and edit deployment.yaml
 nano deployment.yaml
 
->>>>>>>>>>>>>>>>>>>> Add the following content >>>>>>>>>>>>>>>>
+# Add the following content:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -91,17 +100,18 @@ spec:
         app: train-schedule-app
     spec:
       containers:
-      - name: train-schedule-app
-        image: <your_ecr_image_url>  ## Replace with your ECR image URL
-        ports:
-        - containerPort: 80
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-NOTE: Replace <your_ecr_image_url> with your actual ECR image URL.
+        - name: train-schedule-app
+          image: <your_ecr_image_url>  # Replace with your actual ECR image URL
+          ports:
+            - containerPort: 3000       # The container will listen on port 3000
 
+# Apply the deployment
 kubectl apply -f deployment.yaml    
+
+# Create and edit service.yaml
 nano service.yaml
 
->>>>>>>>>>>>>>>>>>>> Add the following content >>>>>>>>>>>>>>>>
+# Add the following content:
 apiVersion: v1
 kind: Service
 metadata:
@@ -112,15 +122,17 @@ spec:
     - port: 80
   selector:
     app: train-schedule-app
->>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 
+# Apply the service
 kubectl apply -f service.yaml
 
 ==============================================================================
-Step 9: Verify application deployment
+Step 10: Verify application deployment
 ==============================================================================
 kubectl get service
 kubectl get pods
-kubectl get pod -o wide
+kubectl get pods -o wide
 kubectl get pods --all-namespaces
 kubectl get pods --all-namespaces -o wide
+
+# End of instructions
