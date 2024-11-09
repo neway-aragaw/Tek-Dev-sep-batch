@@ -49,9 +49,7 @@ Step 5: Create EKS Cluster (Example Command)
 ==============================================================================
 eksctl create cluster --name <cluster-name> --version 1.21 --region us-east-1 --nodegroup-name <nodegroup-name> --node-type t3.medium --nodes 2 --nodes-min 1 --nodes-max 3 --managed
 
-# Replace <cluster-name> with a custom name for your EKS cluster and <nodegroup-name> with a name for your worker node group.
-# Example:
-# eksctl create cluster --name trainSchedule-cluster --version 1.21 --region us-east-1 --nodegroup-name standard-workers --node-type t3.medium --nodes 2 --nodes-min 1 --nodes-max 3 --managed
+@@@@@@ eksctl create cluster --name trainSchedule-cluster --region us-east-1 --nodegroup-name standard-workers --node-type t2.medium --nodes 2 --managed
 
 ==============================================================================
 Step 6: Clone Git repository and authenticate Docker with AWS ECR
