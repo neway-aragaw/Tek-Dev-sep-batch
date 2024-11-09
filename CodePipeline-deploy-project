@@ -127,5 +127,43 @@ pm2 save
 
 # ================================================================
 # Verify that the app is running
+=========================================================================================================
+==============check the performance and the log of the  codedeploy-agent    ============================
+=========================================================================================================
+   
+tail -f /var/log/aws/codedeploy-agent/codedeploy-agent.log
+=========================================================================================================
+===================use this policy to be attached   ====================================================
+=========================================================================================================
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Effect": "Allow",
+            "Action": [
+                "codedeploy:PollHostCommand",
+                "codedeploy:RegisterApplicationRevision",
+                "codedeploy:GetDeployment",
+                "codedeploy:GetDeploymentConfig",
+                "codedeploy:CreateDeployment",
+                "codedeploy:ListDeployments"
+            ],
+            "Resource": "*"
+        },
+        {
+            "Effect": "Allow",
+            "Action": [
+                "ec2:DescribeInstances",
+                "ec2:DescribeTags",
+                "ec2:DescribeSecurityGroups",
+                "ec2:DescribeSubnets",
+                "ec2:DescribeVpcs"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+
+
 # ================================================================
 pm2 list
