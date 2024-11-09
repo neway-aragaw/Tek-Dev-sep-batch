@@ -52,28 +52,30 @@ eksctl create cluster --name <cluster-name> --version 1.21 --region us-east-1 --
 @@@@@@ eksctl create cluster --name trainSchedule-cluster --region us-east-1 --nodegroup-name standard-workers --node-type t2.medium --nodes 2 --managed
 
 ==============================================================================
-Step 6: Clone Git repository and authenticate Docker with AWS ECR
-==============================================================================
-
-sudo yum install git -y
-git clone https://github.com/<your-username>/cicd-pipeline-train-schedule-kubernetes.git
-aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
-
-==============================================================================
-Step 7: Build, tag, and push Docker image to ECR
-==============================================================================
-
-cd cicd-pipeline-train-schedule-kubernetes/
-docker build -t trainschedulerepo:latest .
-docker tag trainschedulerepo:latest <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
-docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
-
-==============================================================================
-Step 8: Configure kubectl with EKS cluster and check node status
+Step 6: Configure kubectl with EKS cluster and check node status
 ==============================================================================
 
 aws eks --region us-east-1 update-kubeconfig --name <cluster-name>
 kubectl get nodes
+
+==============================================================================
+Step 7: Clone Git repository and authenticate Docker with AWS ECR
+==============================================================================
+
+sudo yum install git -y
+git clone https://github.com/<your-username>/cicd-pipeline-train-schedule-kubernetes.git
+
+==============================================================================
+Step 8: Build, tag, and push Docker image to ECR
+==============================================================================
+
+cd cicd-pipeline-train-schedule-kubernetes/
+aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin <your_account_id>.dkr.ecr.us-east-1.amazonaws.com
+docker build -t trainschedulerepo:latest .
+docker tag trainschedulerepo:latest <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+docker push <your_account_id>.dkr.ecr.us-east-1.amazonaws.com/trainschedulerepo:latest
+
+
 
 ==============================================================================
 Step 9: Deploy and expose application with Kubernetes
@@ -99,9 +101,10 @@ spec:
     spec:
       containers:
         - name: train-schedule-app
-          image: <your_ecr_image_url>  # Replace with your actual ECR image URL
+          image: 050752638165.dkr.ecr.us-east-1.amazonaws.com/train_schedulerepo:latest  # Your image
           ports:
-            - containerPort: 3000       # The container will listen on port 3000
+            - containerPort: 3000  # The container listens on port 3000
+
 
 # Apply the deployment
 kubectl apply -f deployment.yaml    
@@ -115,11 +118,14 @@ kind: Service
 metadata:
   name: train-schedule-service
 spec:
-  type: LoadBalancer
-  ports:
-    - port: 80
+  type: NodePort  # Expose using NodePort
   selector:
-    app: train-schedule-app
+    app: train-schedule-app  # This should match the label in your deployment
+  ports:
+    - port: 80            # Expose the service externally on port 80
+      targetPort: 3000     # Forward traffic to the container's port 3000
+      nodePort: 30080      # Optionally specify a NodePort (auto-assigned by Kubernetes if omitted)
+      protocol: TCP
 
 # Apply the service
 kubectl apply -f service.yaml
@@ -134,3 +140,26 @@ kubectl get pods --all-namespaces
 kubectl get pods --all-namespaces -o wide
 
 # End of instructions
+### Summary Table:
+
+ports and their uses
+
+# Port Types in Kubernetes
+==========================
+
+== Summary Table ==
+
+==========================================================================================================================
+| Port Type           | Port Range         | Typical Use Case                                      | Scope               |
+|=====================|-===================|-------------------------------------------------------|---------------------|
+| ContainerPort       | 0-65535            | The port your container is listening on (e.g., 3000)  | Pod                 |
+| Service Port        | 0-65535            | Exposed port for services inside the cluster          | Cluster             |
+| Target Port         | 0-65535            | The port on the pod to which the service forwards traffic | Pod             |
+| NodePort            | 30000-32767        | Exposed port for services outside the cluster         | Node External       |
+| LoadBalancer Port   | 0-65535            | Exposed via external load balancer (e.g., 80/443)     | External (Cloud)    |
+| Ingress Port        | 80, 443            | Exposes HTTP/HTTPS traffic via an Ingress controller  | External            |
+| ClusterIP Port      | 1-65535            | Default internal service port                         | Cluster             |
+| Well-Known Ports    | 1-1023             | Standard network services (e.g., HTTP, HTTPS, DNS)    | Internal/External   |
+=========================================================================================================================
+==========================
+
